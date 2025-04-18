@@ -199,52 +199,53 @@ let loading = false;
 	};
 
 	window.uploadImage = async function() {
-		if (!selectedFile) {
-			alert("Vui lòng chọn ảnh trước!");
-			return;
-		}
-
-		// Hiển thị spinner loading
-		document.getElementById("loading-spinner").style.display = "block";
-		document.getElementById("upload-btn").disabled = true;
-		document.getElementById("error-message").textContent = "";
-		document.getElementById("prediction").textContent = "Đang xử lý...";
-		document.getElementById("confidence").textContent = ""; // Xóa độ chính xác trước khi xử lý mới
-
-		const formData = new FormData();
-		formData.append("file", selectedFile);
-
-		try {
-			const response = await fetch("https://fruit-api-b8fy.onrender.com/predict", {
-				method: "POST",
-				body: formData,
-				headers: {
-					"Accept": "application/json",
-				},
-			});
-
-			const data = await response.json();
-			if (response.ok) {
-				// Lấy kết quả dự đoán
-				const predictedLabel = data.prediction;
-
-				// Tìm tên trái cây bằng tiếng Việt từ nhãn tiếng Anh
-				const vietnameseLabel = labelsVietnamese[predictedLabel.toLowerCase()] || predictedLabel;
-	
-				// Hiển thị kết quả
-				document.getElementById("prediction").textContent = `Kết quả: ${vietnameseLabel}`;
-				document.getElementById("confidence").textContent = `Độ chính xác: ${Math.round(data.confidence * 100)}%`;
-			} else {
-				throw new Error(data.message || "Có lỗi xảy ra khi gọi API!");
-			}
-		} catch (error) {
-			document.getElementById("error-message").textContent = `Lỗi: ${error.message}`;
-		} finally {
-			// Ẩn spinner khi kết thúc
-			document.getElementById("loading-spinner").style.display = "none";
-			document.getElementById("upload-btn").disabled = false;
-		}
-	};
+        if (!selectedFile) {
+            alert("Vui lòng chọn ảnh trước!");
+            return;
+        }
+    
+        document.getElementById("loading-spinner").style.display = "block";
+        document.getElementById("upload-btn").disabled = true;
+        document.getElementById("error-message").textContent = "";
+        document.getElementById("prediction").textContent = "Đang xử lý...";
+        document.getElementById("confidence").textContent = "";
+    
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+    
+        try {
+            const response = await fetch("https://fruit-api-b8fy.onrender.com/predict", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "Accept": "application/json",
+                },
+            });
+    
+            const data = await response.json();
+            if (response.ok) {
+                const predictedLabel = data.prediction;
+                const confidence = data.confidence;
+    
+                if (confidence < 0.8) {
+                    document.getElementById("prediction").textContent = "Không thể dự đoán vì độ tin cậy thấp.";
+                    document.getElementById("confidence").textContent = `Độ chính xác: ${(confidence * 100).toFixed(3)}%`;
+                } else {
+                    const vietnameseLabel = labelsVietnamese[predictedLabel.toLowerCase()] || predictedLabel;
+                    document.getElementById("prediction").textContent = `Kết quả: ${vietnameseLabel}`;
+                    document.getElementById("confidence").textContent = `Độ chính xác: ${(confidence * 100).toFixed(3)}%`;
+                }
+            } else {
+                throw new Error(data.message || "Có lỗi xảy ra khi gọi API!");
+            }
+        } catch (error) {
+            document.getElementById("error-message").textContent = `Lỗi: ${error.message}`;
+        } finally {
+            document.getElementById("loading-spinner").style.display = "none";
+            document.getElementById("upload-btn").disabled = false;
+        }
+    };
+    
 
 
     // Document on load.
