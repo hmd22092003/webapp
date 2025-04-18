@@ -227,7 +227,7 @@ let loading = false;
                 const predictedLabel = data.prediction;
                 const confidence = data.confidence;
     
-                if (confidence < 0.8) {
+                if (confidence < 0.7) {
                     document.getElementById("prediction").textContent = "Không thể dự đoán vì độ tin cậy thấp.";
                     document.getElementById("confidence").textContent = `Độ chính xác: ${(confidence * 100).toFixed(3)}%`;
                 } else {
