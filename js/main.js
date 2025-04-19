@@ -171,80 +171,78 @@ let selectedFile = null;
 let loading = false;
 
 // Hàm xử lý khi chọn file ảnh
-	window.handleFileChange = function(event) {
-	const file = event.target.files[0];
-	selectedFile = file;
+window.uploadImage = async function () {
+    if (!selectedFile) {
+        alert("Vui lòng chọn ảnh trước!");
+        return;
+    }
 
-	const previewContainer = document.getElementById("image-preview");
-	const reader = new FileReader();
+    const primaryAPI = "https://fruit-api-b8fy.onrender.com/predict";
+    const backupAPI = "https://test-dn.onrender.com/predict"; // ← Thay bằng API thật nếu có
 
-	reader.onload = function (e) {
-	const img = document.createElement("img");
-	img.src = e.target.result;
-	img.style.width = "400px"; // Cỡ ảnh preview
-	img.style.height = "200px"; // Cài đặt chiều cao
-	previewContainer.innerHTML = ""; // Xóa ảnh cũ
-	previewContainer.appendChild(img);
+    document.getElementById("loading-spinner").style.display = "block";
+    document.getElementById("upload-btn").disabled = true;
+    document.getElementById("error-message").textContent = "";
+    document.getElementById("prediction").textContent = "Đang xử lý...";
+    document.getElementById("confidence").textContent = "";
 
-	// Thay thế ảnh mặc định với ảnh tải lên
-	const defaultImage = document.getElementById("default-image");
-	defaultImage.src = e.target.result;  // Cập nhật ảnh hiển thị
-	};
+    const formData = new FormData();
+    formData.append("file", selectedFile);
 
-	reader.readAsDataURL(file);
-	document.getElementById("upload-btn").disabled = false; // Bật nút gửi ảnh khi có ảnh
-	document.getElementById("prediction").textContent = ""; // Xóa kết quả cũ
-	document.getElementById("confidence").textContent = "";
-	document.getElementById("error-message").textContent = ""; // Xóa lỗi cũ
-	};
+    const callAPIWithTimeout = async (url, timeout = 10000) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeout);
 
-	window.uploadImage = async function() {
-        if (!selectedFile) {
-            alert("Vui lòng chọn ảnh trước!");
-            return;
-        }
-    
-        document.getElementById("loading-spinner").style.display = "block";
-        document.getElementById("upload-btn").disabled = true;
-        document.getElementById("error-message").textContent = "";
-        document.getElementById("prediction").textContent = "Đang xử lý...";
-        document.getElementById("confidence").textContent = "";
-    
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-    
         try {
-            const response = await fetch("https://fruit-api-b8fy.onrender.com/predict", {
+            const response = await fetch(url, {
                 method: "POST",
                 body: formData,
                 headers: {
                     "Accept": "application/json",
                 },
+                signal: controller.signal,
             });
-    
-            const data = await response.json();
-            if (response.ok) {
-                const predictedLabel = data.prediction;
-                const confidence = data.confidence;
-    
-                if (confidence < 0.7) {
-                    document.getElementById("prediction").textContent = "Không thể dự đoán vì độ tin cậy thấp.";
-                    document.getElementById("confidence").textContent = `Độ chính xác: ${(confidence * 100).toFixed(3)}%`;
-                } else {
-                    const vietnameseLabel = labelsVietnamese[predictedLabel.toLowerCase()] || predictedLabel;
-                    document.getElementById("prediction").textContent = `Kết quả: ${vietnameseLabel}`;
-                    document.getElementById("confidence").textContent = `Độ chính xác: ${(confidence * 100).toFixed(3)}%`;
-                }
-            } else {
-                throw new Error(data.message || "Có lỗi xảy ra khi gọi API!");
-            }
+            clearTimeout(timer);
+            return await response.json().then(data => ({ ok: response.ok, data }));
         } catch (error) {
-            document.getElementById("error-message").textContent = `Lỗi: ${error.message}`;
-        } finally {
-            document.getElementById("loading-spinner").style.display = "none";
-            document.getElementById("upload-btn").disabled = false;
+            clearTimeout(timer);
+            throw error;
         }
     };
+
+    try {
+        let result;
+        try {
+            result = await callAPIWithTimeout(primaryAPI);
+        } catch (error) {
+            console.warn("Primary API timeout or failed. Switching to backup...");
+            result = await callAPIWithTimeout(backupAPI);
+        }
+
+        const { ok, data } = result;
+        if (ok) {
+            const predictedLabel = data.prediction;
+            const confidence = data.confidence;
+
+            if (confidence < 0.7) {
+                document.getElementById("prediction").textContent = "Không thể dự đoán vì độ tin cậy thấp.";
+                document.getElementById("confidence").textContent = `Độ chính xác: ${(confidence * 100).toFixed(3)}%`;
+            } else {
+                const vietnameseLabel = labelsVietnamese[predictedLabel.toLowerCase()] || predictedLabel;
+                document.getElementById("prediction").textContent = `Kết quả: ${vietnameseLabel}`;
+                document.getElementById("confidence").textContent = `Độ chính xác: ${(confidence * 100).toFixed(3)}%`;
+            }
+        } else {
+            throw new Error(data.message || "Có lỗi xảy ra khi gọi API!");
+        }
+    } catch (error) {
+        document.getElementById("error-message").textContent = `Lỗi: ${error.message}`;
+    } finally {
+        document.getElementById("loading-spinner").style.display = "none";
+        document.getElementById("upload-btn").disabled = false;
+    }
+};
+
     
 
 
